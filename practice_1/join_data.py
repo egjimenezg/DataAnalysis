@@ -10,3 +10,4 @@ for i in range(1,5):
 fileData = pd.concat(data)
 
 fileData.to_csv("StatusDataComplete.csv")
+
