@@ -1,15 +1,14 @@
 import pandas as pd
+import glob,os
 
 fileData = pd.DataFrame()
 data = []
 
-for i in range(1,5):
-  dataFrame = pd.read_csv("StatusData" + str(i) + ".csv", index_col=None, header=None)
+for status_file in glob.glob(os.path.join(".","*.csv")):
+  dataFrame = pd.read_csv(status_file, index_col=None, header=None)
   data.append(dataFrame)
 
 fileData = pd.concat(data)
 
-fileData.to_csv("StatusDataComplete.csv",
-                header=False,
-                index=False)
+fileData.to_csv("StatusDataComplete.csv",header=False,index=False)
 
