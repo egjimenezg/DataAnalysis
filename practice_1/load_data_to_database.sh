@@ -1,6 +1,8 @@
 #!/bin/bash
 
-#python join_data.py
+rm -rf StatusDataComplete.csv
+
+python join_data.py
 
 mysql --local-infile=1 -u root -p -e "SET GLOBAL local_infile='ON';" -e "SOURCE database.sql;" \
 -e "USE VEHICLES;" \
