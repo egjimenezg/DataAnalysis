@@ -4,9 +4,8 @@ import operator
 
 data = pd.read_csv("data.csv",header=None)
 
-def classify(v,distance):
+def classify(v,k,distance):
   target_values = data.iloc[:,-1]
-  k = 3 
   nearest_neighbors = knn(data,k,v,distance)
   classification_values = {}
   
@@ -36,7 +35,7 @@ def euclidean_distance(x,y):
   summation = 0
   for i in range(0,x.size):
     summation += ((x[i] - y[i])**2)
-  
+
   return (summation)**(1/2)
 
 vectors_to_classify = [np.array([1100000,60,1,2,1,500]),
@@ -45,5 +44,6 @@ vectors_to_classify = [np.array([1100000,60,1,2,1,500]),
                        np.array([2300000,72,1,3,1,1400]),
                        np.array([3900000,110,2,3,1,1800])]
 
-for v in vectors_to_classify:
-  print(classify(v,euclidean_distance))
+for k in [1,3,5]:
+  for v in vectors_to_classify:
+    classify(v,k,euclidean_distance)
