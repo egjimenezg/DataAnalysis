@@ -1,8 +1,11 @@
 import numpy as np
 import pandas as pd
 import operator
+from sklearn import preprocessing
 
 data = pd.read_csv("data.csv",header=None)
+
+min_max_scaler = preprocessing.MinMaxScaler(feature_range=(0,1))
 
 def classify(v,k,distance):
   target_values = data.iloc[:,-1]
@@ -23,6 +26,8 @@ def knn(vectors,k,vector_to_classify,distance):
   for i in range(0,len(vectors)):
     x = vectors.loc[i,:]
     x = x[0:len(x)-1] 
+    x = min_max_scaler.fit_transform(x.values.astype(float).reshape(-1,1))[:,0]
+
     distances.append({"index": i,
                       "value": distance(x,vector_to_classify)})
 
@@ -66,5 +71,6 @@ for distance in distances:
   for k in [1,3,5]:
     print("K = " + str(k))
     for v in vectors_to_classify:
+      v = min_max_scaler.fit_transform(v.astype(float).reshape(-1,1))[:,0]
       print(classify(v,k,distance['function']))
 
