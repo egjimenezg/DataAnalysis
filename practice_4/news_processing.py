@@ -75,7 +75,6 @@ def save_document_matrix(document,dictionary):
   db = client["news-db"]
   news = db["news"]
   
-  
   for line in document:
     line_vector = []
     for word in dictionary:
