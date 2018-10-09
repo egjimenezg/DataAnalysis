@@ -54,7 +54,6 @@ def get_document_and_dictionary():
     tokens = remove_stop_words(stop_words,tokens)
 
     if(len(tokens) > 0):
-
       new_dictionary = {}
 
       for index in range(0,len(tokens)):
@@ -73,7 +72,8 @@ def save_document_matrix(document,dictionary):
   document_matrix = []
   client = MongoClient()
   db = client["news-db"]
-  news = db["news"]
+  news_collection = db["news"]
+  dictionary_collection = db["dictionary"]
   
   for line in document:
     line_vector = []
@@ -83,9 +83,10 @@ def save_document_matrix(document,dictionary):
       else:
         line_vector.append(0)
 
-    news.insert_one({"id": 1,
-                     "text": line["text"],
-                     "vector": line_vector})
+    news_collection.insert_one({"text": line["text"],
+                                "vector": line_vector})
+
+  dictionary_collection.insert_one({"dictionary": dictionary})
 
 document_and_dictionary = get_document_and_dictionary()
 document = document_and_dictionary['document']
