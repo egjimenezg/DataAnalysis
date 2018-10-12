@@ -12,17 +12,29 @@ sales_by_date = sales.groupby(['the_year',
                                'product_id']).product_id.agg(['count']).reset_index()
 
 sales_by_date = sales_by_date[~sales_by_date.the_day.isin(["Saturday","Sunday"])]
+sales_by_date = sales_by_date[sales_by_date.the_month.isin(["October","November","December"])]
 
-sales_by_date = sales_by_date[['the_year','the_month','day_of_month','store_id','product_id','count']]
+sales_by_date = sales_by_date[['the_year',
+                               'the_month',
+                               'day_of_month',
+                               'store_id',
+                               'product_id',
+                               'count']]
 
-rules  = pivot_table(sales_by_date,values = 'count', index=['the_year','the_month','day_of_month','store_id'],
+rules  = pivot_table(sales_by_date,values = 'count', index=['the_year',
+                                                            'the_month',
+                                                            'day_of_month',
+                                                            'store_id'],
                      columns = ['product_id']).reset_index()
 
-rules = rules.drop(["the_year","the_month","day_of_month","store_id"],axis=1)
+rules = rules.drop(["the_year",
+                    "the_month",
+                    "day_of_month",
+                    "store_id"],axis=1)
 
 rules = rules.fillna(0)
-rules[rules >= 1.0] = "SI"
-rules[rules == 0] = "NO"
+rules[rules >= 1.0] = True
+rules[rules == 0] = "?"
 
 rules.columns = ["L" + str(col) for col in rules.columns]
 rules.to_csv("rules.csv",index=False)
