@@ -1,96 +1,78 @@
 from nltk import word_tokenize
 import pymongo
 from pymongo import MongoClient
+import findspark
+findspark.init()
+from pyspark.sql import SparkSession
+from pyspark import SparkContext, SparkConf
+from lemmatizer import Lemmatizer
+from stop_words import StopWords
 
-def load_lemmas():
-  lemmas_file = open("diccionarioLematizador.txt","r",encoding="utf8")
-  lemma_dictionary = {}
+def get_tokenized_news(spark):
+  news = spark.sparkContext.textFile("noticias100.csv")
+  news = news.map(lambda new: {"text": new,
+                               "words": word_tokenize(new.lower())})
 
-  for line in lemmas_file:
-    words_block = line.split()
-    word = words_block[0]
-    lemma = words_block[1]
-    lemma_dictionary.update({word: lemma})
+  return news.collect()
 
-  return lemma_dictionary
-    
-def lemmatization(lemma_dictionary,word):
-  word = word.lower()
-  if word in lemma_dictionary:
-    lemma = str(lemma_dictionary.get(word))
-  else:
-    lemma = word
-  return lemma
-
-def get_news():
-  with open("noticias2.csv","r",encoding="utf8") as news_file:
-    lines = news_file.readlines()
-
-  del lines[0]
-
-  return lines
-
-def get_stop_words():
-  with open("stopwords.txt","r",encoding="utf8") as stop_words_file:
-    stop_words = stop_words_file.readlines()
-    for index in range(0,len(stop_words)):
-      stop_words[index] = stop_words[index].rstrip()
-
-  return set(stop_words)
-      
-def remove_stop_words(stop_words,line):
-  return [word for word in line if word not in stop_words]
-
-def get_document_and_dictionary():
-  news = get_news()
-  stop_words = get_stop_words()  
-  document = []
-  lemmas_dictionary = load_lemmas()
-  dictionary = {}
-
-  for i,new in enumerate(news):
-    new = new.lower()
-    tokens = word_tokenize(new)
-    tokens = remove_stop_words(stop_words,tokens)
-
-    if(len(tokens) > 0):
-      new_dictionary = {}
-
-      for index in range(0,len(tokens)):
-        token_lemma = lemmatization(lemmas_dictionary,tokens[index])
-        new_dictionary[token_lemma] = 1
-        if(tokens[index] not in dictionary):
-          dictionary[tokens[index]] = 1
-
-      document.append({"id": i,"words": new_dictionary, "text": new})
-
-  return {'dictionary': dictionary,
-          'document': document}
+def lemmatize_new(lemmatizer,new):
+  new_dict = {}
+  for index in range(0,len(new["words"])):
+    new_dict[lemmatizer.lemmatization(new["words"][index])] = 1
+  
+  return {"text": new["text"], "words": new_dict}
 
 
-def save_document_matrix(document,dictionary):
-  document_matrix = []
+def get_document_and_dictionary(spark):
+  news = spark.sparkContext.parallelize(get_tokenized_news(spark))
+  stop_words = StopWords(spark)
+  news_without_stop_words = news.map(lambda new: {"text": new["text"],
+                                                  "words":stop_words.remove_stop_words(new["words"])})
+
+  lemmatizer = Lemmatizer()
+  lemmatized_news = news_without_stop_words.map(lambda new: lemmatize_new(lemmatizer,
+                                                                          new))
+
+  news_words = lemmatized_news.flatMap(lambda new: new["words"])\
+                              .distinct()
+
+  dictionary = list(news_words.map(lambda word: (word, 1))\
+                              .collect())
+
+  return {"dictionary": dictionary,
+          "document": lemmatized_news.collect()}
+
+def createVector(new, dictionary):
+  new_vector = []
+  for word in dictionary:
+    if word[0] in new["words"]:
+      new_vector.append(1)
+    else:
+      new_vector.append(0)
+  return new_vector
+
+def save_document_matrix(spark,document,dictionary):
   client = MongoClient()
   db = client["news-db"]
   news_collection = db["news"]
   dictionary_collection = db["dictionary"]
   
-  for line in document:
-    line_vector = []
-    for word in dictionary:
-      if word in line['words']:
-        line_vector.append(1) 
-      else:
-        line_vector.append(0)
+  tokenized_news = spark.sparkContext.parallelize(document)
+  document_matrix = tokenized_news.map(lambda new: {"text": new["text"],
+                                                    "vector": createVector(new,dictionary)})
 
-    news_collection.insert_one({"text": line["text"],
-                                "vector": line_vector})
-
+  news_collection.insert_many(document_matrix.collect())
+  
   dictionary_collection.insert_one({"dictionary": dictionary})
 
-document_and_dictionary = get_document_and_dictionary()
-document = document_and_dictionary['document']
-dictionary = sorted(document_and_dictionary['dictionary'])
-  
-save_document_matrix(document,dictionary)
 
+
+spark = SparkSession.builder.appName("Information Retrieval").getOrCreate()
+
+document_and_dictionary = get_document_and_dictionary(spark)
+document = document_and_dictionary["document"]
+dictionary = sorted(document_and_dictionary["dictionary"])
+
+save_document_matrix(spark,document,dictionary)
+
+spark.stop()
