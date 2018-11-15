@@ -1,0 +1,4 @@
+*.adoc
+*.DS_Store
+*.swp
+logs/
